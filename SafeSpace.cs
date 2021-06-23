@@ -23,8 +23,8 @@ namespace Oxide.Plugins
         private BasePlayer viewplayer;
         private Coroutine _routine;
         static Dictionary<SleepingBag, ulong> SafeSpaceBags = new Dictionary<SleepingBag, ulong>();
-        private Random rnd = new Random(DateTime.Now.Millisecond);
         private uint MapSize;
+        private uint RanMapSize;
         #endregion
 
         #region Language
@@ -70,7 +70,7 @@ namespace Oxide.Plugins
                 basespread = 210,   //210 since HVs can fly 200 and each player can build 4 foundations from safe bag.
                 gridtrim = 1.25f,   //Allow to spawn outside of grid
                 RefreshTimer = 6f,
-                textsize = 22,      
+                textsize = 22,
                 textcolor = Color.red,
             };
         }
@@ -96,6 +96,11 @@ namespace Oxide.Plugins
             if (config == null)
             {
                 LoadDefaultConfig();
+            }
+             RanMapSize = (uint)(MapSize / config.gridtrim);
+            if (RanMapSize >= 4000)
+            {
+                RanMapSize = 3900; //Limits player from going past 4000 kill point
             }
         }
 
@@ -188,10 +193,10 @@ namespace Oxide.Plugins
 
         private Vector3 RandomLocation()
         {
-             int RanMapSize = (int)(MapSize / config.gridtrim); 
+        Random rnd = new Random(DateTime.Now.Millisecond); //Reseed other wise isnt very random and bases clump together.
             //Gen random height to allow for more spaces 943 max height so if they get that and max of 19 foundations high they are still under 1000 heigh kill point.
             //820 as min height since cargo plane flys at 800
-            return new Vector3(rnd.Next(Math.Abs(RanMapSize) * (-1), RanMapSize), rnd.Next(820, 943), rnd.Next(Math.Abs(RanMapSize) * (-1), (RanMapSize)));
+            return new Vector3(rnd.Next(Math.Abs((int)RanMapSize) * (-1), (int)RanMapSize), rnd.Next(820, 943), rnd.Next(Math.Abs((int)RanMapSize) * (-1), ((int)RanMapSize)));
         }
         #endregion
 
@@ -535,7 +540,7 @@ namespace Oxide.Plugins
                 if (arg.Args.Length == 2)
                 {
                     int giveammount = int.Parse(arg.Args[1]);
-                    for (int i = 1; i < giveammount;i++)
+                    for (int i = 1; i < giveammount; i++)
                     {
                         GiveSafeSpace(player);
                     }
