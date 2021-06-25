@@ -24,7 +24,6 @@ namespace Oxide.Plugins
         private Coroutine _routine;
         private Dictionary<SleepingBag, ulong> SafeSpaceBags = new Dictionary<SleepingBag, ulong>();
         private Dictionary<BasePlayer, Dictionary<bool,ulong>> Viewers = new Dictionary<BasePlayer, Dictionary<bool, ulong>>();
-        private uint MapSize;
         private uint RanMapSize;
         private Random rnd;
         #endregion
@@ -65,7 +64,6 @@ namespace Oxide.Plugins
             [JsonProperty(PropertyName = "How fast safespace.view refreshes for admin : ")] public float RefreshTimer { get; set; }
             [JsonProperty(PropertyName = "Text size for safespace.view admin : ")] public byte textsize { get; set; }
             [JsonProperty(PropertyName = "Colour of text : ")] public Color textcolor { get; set; }
-            [JsonProperty(PropertyName = "Plugin Flag : ")] public bool Reloaded { get; set; }
         }
 
         private PluginConfig GetDefaultConfig()
@@ -78,7 +76,6 @@ namespace Oxide.Plugins
                 RefreshTimer = 6f,
                 textsize = 22,
                 textcolor = Color.red,
-                Reloaded = false,
             };
         }
 
@@ -102,7 +99,6 @@ namespace Oxide.Plugins
             permission.RegisterPermission(permCount, this);
             permission.RegisterPermission(permClear, this);
             permission.RegisterPermission(permView, this);
-            MapSize = World.Size;
             config = Config.ReadObject<PluginConfig>();
             if (config == null)
             {
@@ -112,7 +108,7 @@ namespace Oxide.Plugins
 
         void OnServerInitialized(bool initial)
         {
-            RanMapSize = (uint)(MapSize / config.gridtrim);
+            RanMapSize = (uint)(World.Size / config.gridtrim);
             if (RanMapSize >= 4000)
             {
                 RanMapSize = 3900; //Limits player from going past 4000 kill point
@@ -122,13 +118,6 @@ namespace Oxide.Plugins
         void Loaded()
         {
             rnd = new Random(DateTime.Now.Millisecond);
-        }
-
-        void OnSaveLoad()
-        {
-            Puts("Settings SafeSpaces Reloaded flag back to false!");
-            config.Reloaded = false;
-            SaveConfig();
         }
 
         private void Unload()
@@ -345,14 +334,6 @@ namespace Oxide.Plugins
             if (!AreaClear(RandomSafeSpace))
             {
                 message(player, "Valid", config.randomloop);
-                if (!config.Reloaded) //Flag set to false on server restarts.
-                {
-                    StartSleeping(player);
-                    config.Reloaded = true;
-                    SaveConfig();
-                    Puts("Reload plugin so random function works properly!");
-                    covalence.Server.Command("oxide.reload SafeSpace");
-                }
                 return false;
             }
 
