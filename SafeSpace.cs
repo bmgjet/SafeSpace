@@ -615,8 +615,12 @@ namespace Oxide.Plugins
                 if (Viewers.ContainsKey(player)) //Updates filter on player
                 {
                     Viewers[player] = new Dictionary<bool, ulong> { { player.IsAdmin, filteredplayer.userID } };
-                    message(player, "View", "Started filtered");
                 }
+                else
+                {
+                    Viewers.Add(player, new Dictionary<bool, ulong> { { player.IsAdmin, filteredplayer.userID } });
+                }
+                message(player, "View", "Started filtered");
             }
             else
             {
