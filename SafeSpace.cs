@@ -25,6 +25,8 @@ namespace Oxide.Plugins
         static Dictionary<SleepingBag, ulong> SafeSpaceBags = new Dictionary<SleepingBag, ulong>();
         private uint MapSize;
         private uint RanMapSize;
+        private Random rnd;
+        private bool reloaded = false;
         #endregion
 
         #region Language
@@ -32,7 +34,7 @@ namespace Oxide.Plugins
         {
             lang.RegisterMessages(new Dictionary<string, string>
             {
-            {"Valid", "({0}) No Valid Locations Found Try Place Again!"},
+            {"Valid", "({0}) No Valid Locations Found Try Place Again in 10 seconds!"},
             {"Receive", "You received SafeSpace token!"},
             {"Welcome", "<color=red>{0}</color>, <color=orange>Remember to /sethome safespace</color>"},
             {"Permission", "You need permission to {0} a SafeSpace!"},
@@ -97,11 +99,23 @@ namespace Oxide.Plugins
             {
                 LoadDefaultConfig();
             }
-             RanMapSize = (uint)(MapSize / config.gridtrim);
+
+        }
+
+        void OnServerInitialized(bool initial)
+        {
+            RanMapSize = (uint)(MapSize / config.gridtrim);
             if (RanMapSize >= 4000)
             {
                 RanMapSize = 3900; //Limits player from going past 4000 kill point
             }
+            //Build database
+            //RefreshSafeSpaceList(0);
+        }
+
+        void Loaded()
+        {
+            rnd = new Random(DateTime.Now.Millisecond);
         }
 
         private void Unload()
@@ -193,10 +207,7 @@ namespace Oxide.Plugins
 
         private Vector3 RandomLocation()
         {
-        Random rnd = new Random(DateTime.Now.Millisecond); //Reseed other wise isnt very random and bases clump together.
-            //Gen random height to allow for more spaces 943 max height so if they get that and max of 19 foundations high they are still under 1000 heigh kill point.
-            //820 as min height since cargo plane flys at 800
-            return new Vector3(rnd.Next(Math.Abs((int)RanMapSize) * (-1), (int)RanMapSize), rnd.Next(820, 943), rnd.Next(Math.Abs((int)RanMapSize) * (-1), ((int)RanMapSize)));
+              return new Vector3(rnd.Next(Math.Abs((int)RanMapSize) * (-1), (int)RanMapSize), rnd.Next(820, 943), rnd.Next(Math.Abs((int)RanMapSize) * (-1), ((int)RanMapSize)));
         }
         #endregion
 
@@ -307,6 +318,12 @@ namespace Oxide.Plugins
             if (!AreaClear(RandomSafeSpace))
             {
                 message(player, "Valid", config.randomloop);
+                if (!reloaded)
+                {
+                    covalence.Server.Command("oxide.reload SafeSpace");
+                    reloaded = true;
+                    Puts("Reload plugin so random function works properly!");
+                }
                 return false;
             }
 
@@ -414,6 +431,21 @@ namespace Oxide.Plugins
         #endregion
 
         #region ChatCommand
+        [ChatCommand("safespace")]
+        private void CmdSafeSpaceTeleport(BasePlayer player, string command, string[] args)
+        {
+            //Takes player to there safespace.
+            if (!player.IPlayer.HasPermission(permUse))
+            {
+                //message(player, "Permission", "craft");
+                return;
+            }
+            //
+            //Do a check if they have more then 1 safe space and list
+            //
+            //Probably use datafile with id and vector3
+
+        }
         [ChatCommand("safespace.craft")]
         private void CmdSafeSpace(BasePlayer player, string command, string[] args)
         {
