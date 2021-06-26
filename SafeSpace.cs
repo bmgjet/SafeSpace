@@ -9,7 +9,7 @@ using Random = System.Random;
 
 namespace Oxide.Plugins
 {
-    [Info("SafeSpace", "bmgjet", "1.0.1")]
+    [Info("SafeSpace", "bmgjet", "1.0.2")]
     [Description("Create a personal safe space for players.")]
     public class SafeSpace : RustPlugin
     {
@@ -23,7 +23,7 @@ namespace Oxide.Plugins
         private const string permView = "SafeSpace.view";
         private Coroutine _routine;
         private Dictionary<SleepingBag, ulong> SafeSpaceBags = new Dictionary<SleepingBag, ulong>();
-        private Dictionary<BasePlayer, Dictionary<bool,ulong>> Viewers = new Dictionary<BasePlayer, Dictionary<bool, ulong>>();
+        private Dictionary<BasePlayer, Dictionary<bool, ulong>> Viewers = new Dictionary<BasePlayer, Dictionary<bool, ulong>>();
         private uint RanMapSize;
         private Random rnd;
         #endregion
@@ -137,7 +137,48 @@ namespace Oxide.Plugins
             }
         }
 
-        private void OnEntityBuilt(Planner plan, GameObject go)
+        object OnEntityKill(BaseNetworkable entity)
+        {
+            //Stops whole thing gutting its self if they use /remove on wrong bit.
+            BuildingBlock block = entity as BuildingBlock;
+            if (!block) return null;
+            if ((block.blockDefinition.hierachyName.Contains("floor") || block.blockDefinition.hierachyName.Contains("wall")) && block.transform.position.y > 800f)
+            {
+                //Allow bypass for block if owner is holding a hammer
+                BasePlayer player =  BasePlayer.FindAwakeOrSleeping(block.OwnerID.ToString());
+                if (player != null)
+                {
+                    HeldEntity checkhammer = player.GetHeldEntity();
+                    if (checkhammer != null)
+                        if (checkhammer.ShortPrefabName.Contains("hammer"))
+                        {
+                            Puts(checkhammer.ToString());
+                            return null;
+                        }
+                }
+                //Makes HQM invinsable unless bypassed with hammer.
+                if (block.grade == (BuildingGrade.Enum)4)
+                {
+                    block.grounded = true;
+                    return false;
+                }
+            }
+                return null;
+        }
+
+        object OnEntityTakeDamage(BaseCombatEntity entity, HitInfo info)
+        {
+            //Blocks damage to safe space floors to stop being shot out from ground with sniper and expo ammo if its HQM
+            var block = entity as BuildingBlock;
+            if (!block) return null;
+            if (block.blockDefinition.hierachyName.Contains("floor") && block.transform.position.y > 800f && block.grade == (BuildingGrade.Enum)4)
+            {
+                return false;
+            }
+            return null;
+        }
+
+            private void OnEntityBuilt(Planner plan, GameObject go)
         {
             if (go == null) { return; }
 
@@ -255,7 +296,7 @@ namespace Oxide.Plugins
             });
         }
 
-        private void ShowSafeSpaces(BasePlayer viewplayer,ulong filter)
+        private void ShowSafeSpaces(BasePlayer viewplayer, ulong filter)
         {
             foreach (KeyValuePair<SleepingBag, ulong> ent in SafeSpaceBags)
             {
@@ -268,15 +309,15 @@ namespace Oxide.Plugins
                         if (bag == null || bag.transform.position == null) { continue; }
                         viewplayer.SendConsoleCommand("ddraw.text", config.RefreshTimer, config.textcolor, bag.transform.position, "<size=" + config.textsize + ">" + BasePlayer.FindAwakeOrSleeping(ent.Value.ToString()).displayName + "</size>");
                     }
-                    }
+                }
                 catch { }
             }
         }
 
         IEnumerator SafeSpaceScanRoutine()
         {
-                do //start loop
-                {
+            do //start loop
+            {
                 foreach (KeyValuePair<BasePlayer, Dictionary<bool, ulong>> viewer in Viewers.ToList())
                 {
                     foreach (KeyValuePair<bool, ulong> viewerinfo in viewer.Value.ToList())
@@ -296,17 +337,17 @@ namespace Oxide.Plugins
                             viewer.Key.SendNetworkUpdateImmediate();
                         }
                     }
-                    if(!viewer.Key.IsConnected || viewer.Key.IsSleeping())
+                    if (!viewer.Key.IsConnected || viewer.Key.IsSleeping())
                     {
                         //Remove from viewers list
                         Viewers.Remove(viewer.Key);
                         message(viewer.Key, "View", "Stopped");
                     }
                 }
-                    yield return CoroutineEx.waitForSeconds(config.RefreshTimer);
-                } while (Viewers.Count != 0);
-                _routine = null;
-                Puts("SafeSpace View Thread Stopped!");
+                yield return CoroutineEx.waitForSeconds(config.RefreshTimer);
+            } while (Viewers.Count != 0);
+            _routine = null;
+            Puts("SafeSpace View Thread Stopped!");
         }
 
         private bool GenSafeSpace(BasePlayer player)
@@ -403,7 +444,7 @@ namespace Oxide.Plugins
             }
         }
 
-        private void ClearSpace(Dictionary<SleepingBag,ulong> RemoveBags)
+        private void ClearSpace(Dictionary<SleepingBag, ulong> RemoveBags)
         {
             foreach (KeyValuePair<SleepingBag, ulong> oldsafespace in RemoveBags.ToList())
             {
@@ -416,7 +457,14 @@ namespace Oxide.Plugins
                     foreach (var hit in hits)
                     {
                         var entity = hit.GetEntity()?.GetComponent<BuildingBlock>();
-                        if (entity && !x.Contains(entity)) { try { entity.Kill(); } catch { } };
+                        if (entity && !x.Contains(entity)) 
+                        { 
+                            try
+                            {
+                                entity.SetGrade((BuildingGrade.Enum)1);
+                                entity.Kill(); 
+                            } catch { } 
+                        };
                     }
                     SafeSpaceBags.Remove(oldsafespace.Key);
                 }
@@ -431,7 +479,7 @@ namespace Oxide.Plugins
             {
                 if (IsSafeSpace(bags.skinID))
                 {
-                         SafeSpaceBags.Add(bags, bags.OwnerID);
+                    SafeSpaceBags.Add(bags, bags.OwnerID);
                 }
             }
         }
@@ -468,9 +516,9 @@ namespace Oxide.Plugins
             }
             RefreshSafeSpaceList();
             Dictionary<SleepingBag, ulong> PlayersSafeSpaces = new Dictionary<SleepingBag, ulong>();
-            foreach(KeyValuePair<SleepingBag,ulong> TPs in SafeSpaceBags.ToList())
+            foreach (KeyValuePair<SleepingBag, ulong> TPs in SafeSpaceBags.ToList())
             {
-                if(TPs.Value == player.userID)
+                if (TPs.Value == player.userID)
                 {
                     PlayersSafeSpaces.Add(TPs.Key, TPs.Value);
                 }
@@ -490,15 +538,15 @@ namespace Oxide.Plugins
                     //Check if they have selected
                     if (Selection != 0)
                     {
-                        Teleport(player, PlayersSafeSpaces.ElementAt(Selection-1).Key.transform.position);
+                        Teleport(player, PlayersSafeSpaces.ElementAt(Selection - 1).Key.transform.position);
                         return;
                     }
                     //Message about multipal safe spaces
                     message(player, "Have", PlayersSafeSpaces.Count.ToString());
                     int i = 1;
-                    foreach(KeyValuePair<SleepingBag,ulong> locations in PlayersSafeSpaces)
+                    foreach (KeyValuePair<SleepingBag, ulong> locations in PlayersSafeSpaces)
                     {
-                    message(player, "Already",  i++.ToString()+ ":"+locations.Key.transform.position.ToString());
+                        message(player, "Already", i++.ToString() + ":" + locations.Key.transform.position.ToString());
                     }
                     return;
             }
@@ -537,7 +585,7 @@ namespace Oxide.Plugins
             }
 
             int c = 0;
-            foreach(KeyValuePair<SleepingBag,ulong> counter in SafeSpaceBags)
+            foreach (KeyValuePair<SleepingBag, ulong> counter in SafeSpaceBags)
             {
                 if (counter.Value == filteredplayer.userID) c++;
             }
@@ -552,6 +600,7 @@ namespace Oxide.Plugins
                 message(player, "Permission", "clear");
                 return;
             }
+
             RefreshSafeSpaceList();
             if (args.Length == 0)
             {
