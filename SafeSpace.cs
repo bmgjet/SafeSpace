@@ -39,6 +39,7 @@ namespace Oxide.Plugins
             {"Permission", "You need permission to {0} a SafeSpace!"},
             {"View", "{0} SafeSpace view!"},
             {"No", "You have no safespaces!"},
+            {"Mounted", "You can't teleport while mounted!"},
             {"Already", "{0}"},
             {"permUseHelp", "<color=orange>How to use safespace:</color>" + Environment.NewLine + "Set safespace as your active item and place on ground" + Environment.NewLine + "You will be teleported to your safespace" + Environment.NewLine + "Build your base here using floors, you can return here any time with chat command"+ Environment.NewLine + "<color=orange>/safespace</color>"},
             {"permCraftHelp", "You can craft a safespace token using the command"+ Environment.NewLine + "<color=orange>/safespace.craft</color>"},
@@ -510,6 +511,11 @@ namespace Oxide.Plugins
             if (!player.IPlayer.HasPermission(permUse))
             {
                 message(player, "Permission", "teleport to");
+                return;
+            }
+            if(player.isMounted)
+            {
+                message(player, "Mounted");
                 return;
             }
             ulong uid = player.userID;
