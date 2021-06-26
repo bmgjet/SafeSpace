@@ -40,7 +40,12 @@ namespace Oxide.Plugins
             {"View", "{0} SafeSpace view!"},
             {"No", "You have no safespaces!"},
             {"Already", "{0}"},
-            {"Have", "You have {0} safe spaces select one with /safespace number"},
+            {"permUseHelp", "<color=orange>How to use safespace:</color>" + Environment.NewLine + "Set safespace as your active item and place on ground" + Environment.NewLine + "You will be teleported to your safespace" + Environment.NewLine + "Build your base here using floors, you can return here any time with chat command"+ Environment.NewLine + "<color=orange>/safespace</color>"},
+            {"permCraftHelp", "You can craft a safespace token using the command"+ Environment.NewLine + "<color=orange>/safespace.craft</color>"},
+            {"HelpermCountHelp", "You can count active safe spaces with"+ Environment.NewLine + "<color=orange>/safespace.count</color>" + Environment.NewLine + "Adding a name on after count will filter to only count that players bases"},
+            {"permClearHelp", "You can clear all safe spaces with"+ Environment.NewLine + "<color=orange>/safespace.clear</color>" + Environment.NewLine + "Adding a name after will remove only bases of that player"},
+            {"permViewHelp", "You can view all safe spaces bases with"+ Environment.NewLine + "<color=orange>/safespace.view</color>" + Environment.NewLine + "Adding a name after will filter to only show that player" + Environment.NewLine +  Environment.NewLine + "You can travel to other players safe bases by using"+ Environment.NewLine + "<color=orange>/safespace 0 username</color>"},
+            {"Have", "You have {0} safe spaces select one with"+ Environment.NewLine + "<color=orange>/safespace number</color>"},
             {"Cant", "Cant find any player by that name/id!"},
             {"Clear", "Cleared {0} SafeSpaces!"},
             {"Count", "There are {0} SafeSpaces active!"}
@@ -142,10 +147,11 @@ namespace Oxide.Plugins
             //Stops whole thing gutting its self if they use /remove on wrong bit.
             BuildingBlock block = entity as BuildingBlock;
             if (!block) return null;
-            if ((block.blockDefinition.hierachyName.Contains("floor") || block.blockDefinition.hierachyName.Contains("wall")) && block.transform.position.y > 800f)
+            if (block.transform.position.y < 800f) return null; //exit code as soon as posiable if not what we looking for.
+            if ((block.blockDefinition.hierachyName.Contains("floor") || block.blockDefinition.hierachyName.Contains("wall")))
             {
                 //Allow bypass for block if owner is holding a hammer
-                BasePlayer player =  BasePlayer.FindAwakeOrSleeping(block.OwnerID.ToString());
+                BasePlayer player = BasePlayer.FindAwakeOrSleeping(block.OwnerID.ToString());
                 if (player != null)
                 {
                     HeldEntity checkhammer = player.GetHeldEntity();
@@ -163,7 +169,7 @@ namespace Oxide.Plugins
                     return false;
                 }
             }
-                return null;
+            return null;
         }
 
         object OnEntityTakeDamage(BaseCombatEntity entity, HitInfo info)
@@ -178,7 +184,7 @@ namespace Oxide.Plugins
             return null;
         }
 
-            private void OnEntityBuilt(Planner plan, GameObject go)
+        private void OnEntityBuilt(Planner plan, GameObject go)
         {
             if (go == null) { return; }
 
@@ -457,13 +463,14 @@ namespace Oxide.Plugins
                     foreach (var hit in hits)
                     {
                         var entity = hit.GetEntity()?.GetComponent<BuildingBlock>();
-                        if (entity && !x.Contains(entity)) 
-                        { 
+                        if (entity && !x.Contains(entity))
+                        {
                             try
                             {
                                 entity.SetGrade((BuildingGrade.Enum)1);
-                                entity.Kill(); 
-                            } catch { } 
+                                entity.Kill();
+                            }
+                            catch { }
                         };
                     }
                     SafeSpaceBags.Remove(oldsafespace.Key);
@@ -505,6 +512,7 @@ namespace Oxide.Plugins
                 message(player, "Permission", "teleport to");
                 return;
             }
+            ulong uid = player.userID;
             int Selection = 0;
             if (args.Count() > 0)
             {
@@ -513,12 +521,23 @@ namespace Oxide.Plugins
                     Selection = int.Parse(args[0]);
                 }
                 catch { }
+                if (args.Count() == 2)
+                {
+                    if (player.IPlayer.HasPermission(permView))
+                    {
+                        try
+                        {
+                            uid = BasePlayer.FindAwakeOrSleeping(args[1].ToString()).userID;
+                        }
+                        catch { }
+                    }
+                }
             }
             RefreshSafeSpaceList();
             Dictionary<SleepingBag, ulong> PlayersSafeSpaces = new Dictionary<SleepingBag, ulong>();
             foreach (KeyValuePair<SleepingBag, ulong> TPs in SafeSpaceBags.ToList())
             {
-                if (TPs.Value == player.userID)
+                if (TPs.Value == uid)
                 {
                     PlayersSafeSpaces.Add(TPs.Key, TPs.Value);
                 }
@@ -551,8 +570,34 @@ namespace Oxide.Plugins
                     return;
             }
         }
+
+        [ChatCommand("safespace.help")]
+        private void CmdSafeSpaceHelp(BasePlayer player, string command, string[] args)
+        {
+            if (player.IPlayer.HasPermission(permUse))
+            {
+                message(player, "permUseHelp");
+            }
+            if (player.IPlayer.HasPermission(permCraft))
+            {
+                message(player, "permCraftHelp");
+            }
+            if (player.IPlayer.HasPermission(permCount))
+            {
+                message(player, "HelpermCountHelp");
+            }
+            if (player.IPlayer.HasPermission(permClear))
+            {
+                message(player, "permClearHelp");
+            }
+            if (player.IPlayer.HasPermission(permView))
+            {
+                message(player, "permViewHelp");
+            }
+        }
+
         [ChatCommand("safespace.craft")]
-        private void CmdSafeSpace(BasePlayer player, string command, string[] args)
+        private void CmdSafeSpaceCraft(BasePlayer player, string command, string[] args)
         {
             if (!player.IPlayer.HasPermission(permCraft))
             {
@@ -708,6 +753,7 @@ namespace Oxide.Plugins
                     }
                 }
                 GiveSafeSpace(player);
+                PrintToConsole("Gave item to:" + player.displayName);
             }
         }
         #endregion
