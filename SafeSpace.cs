@@ -5,11 +5,12 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using Oxide.Game.Rust.Cui;
 using Random = System.Random;
 
 namespace Oxide.Plugins
 {
-    [Info("SafeSpace", "bmgjet", "1.0.2")]
+    [Info("SafeSpace", "bmgjet", "1.0.3")]
     [Description("Create a personal safe space for players.")]
     public class SafeSpace : RustPlugin
     {
@@ -35,18 +36,19 @@ namespace Oxide.Plugins
             {
             {"Valid", "({0}) No Valid Locations Found Try Place Again in 10 seconds!"},
             {"Receive", "You received SafeSpace token!"},
-            {"Welcome", "Welcome to your safespace <color=red>{0}</color>," + Environment.NewLine + "<color=orange>You can get back here with /safespace</color>"},
+            {"Welcome", "Welcome to your safespace <color=red>{0}</color>," + "\n" + "<color=orange>You can get back here with /safespace</color>"},
             {"Permission", "You need permission to {0} a SafeSpace!"},
             {"View", "{0} SafeSpace view!"},
             {"No", "You have no safespaces!"},
             {"Mounted", "You can't teleport while mounted!"},
+            {"Ground", "You can't teleport while falling!"},
             {"Already", "{0}"},
-            {"permUseHelp", "<color=orange>How to use safespace:</color>" + Environment.NewLine + "Set safespace as your active item and place on ground" + Environment.NewLine + "You will be teleported to your safespace" + Environment.NewLine + "Build your base here using floors, you can return here any time with chat command"+ Environment.NewLine + "<color=orange>/safespace</color>"},
-            {"permCraftHelp", "You can craft a safespace token using the command"+ Environment.NewLine + "<color=orange>/safespace.craft</color>"},
-            {"HelpermCountHelp", "You can count active safe spaces with"+ Environment.NewLine + "<color=orange>/safespace.count</color>" + Environment.NewLine + "Adding a name on after count will filter to only count that players bases"},
-            {"permClearHelp", "You can clear all safe spaces with"+ Environment.NewLine + "<color=orange>/safespace.clear</color>" + Environment.NewLine + "Adding a name after will remove only bases of that player"},
-            {"permViewHelp", "You can view all safe spaces bases with"+ Environment.NewLine + "<color=orange>/safespace.view</color>" + Environment.NewLine + "Adding a name after will filter to only show that player" + Environment.NewLine +  Environment.NewLine + "You can travel to other players safe bases by using"+ Environment.NewLine + "<color=orange>/safespace 0 username</color>"},
-            {"Have", "You have {0} safe spaces select one with"+ Environment.NewLine + "<color=orange>/safespace number</color>"},
+            {"permUseHelp", "<color=orange>How to use safespace:</color>" + "\n" + "Set safespace as your active item and place on ground" + "\n" + "You will be teleported to your safespace" + "\n" + "Build your base here using floors, you can return here any time with chat command"+ "\n" + "<color=orange>/safespace</color>"},
+            {"permCraftHelp", "You can craft a safespace token using the command"+ "\n" + "<color=orange>/safespace.craft</color>"},
+            {"HelpermCountHelp", "You can count active safe spaces with"+ "\n" + "<color=orange>/safespace.count</color>" + "\n" + "Adding a name on after count will filter to only count that players bases"},
+            {"permClearHelp", "You can clear all safe spaces with"+ "\n" + "<color=orange>/safespace.clear</color>" + "\n" + "Adding a name after will remove only bases of that player"},
+            {"permViewHelp", "You can view all safe spaces bases with"+ "\n" + "<color=orange>/safespace.view</color>" + "\n" + "Adding a name after will filter to only show that player" + "\n" +  "\n" + "You can travel to other players safe bases by using"+ "\n" + "<color=orange>/safespace 0 username</color>"},
+            {"Have", "You have {0} safe spaces select one with"+ "\n" + "<color=orange>/safespace number</color>"},
             {"Cant", "Cant find any player by that name/id!"},
             {"Clear", "Cleared {0} SafeSpaces!"},
             {"Count", "There are {0} SafeSpaces active!"}
@@ -70,6 +72,7 @@ namespace Oxide.Plugins
             [JsonProperty(PropertyName = "How fast safespace.view refreshes for admin : ")] public float RefreshTimer { get; set; }
             [JsonProperty(PropertyName = "Text size for safespace.view admin : ")] public byte textsize { get; set; }
             [JsonProperty(PropertyName = "Colour of text : ")] public Color textcolor { get; set; }
+            [JsonProperty(PropertyName = "Info text size : ")] public byte infosize { get; set; }
         }
 
         private PluginConfig GetDefaultConfig()
@@ -82,6 +85,7 @@ namespace Oxide.Plugins
                 RefreshTimer = 6f,
                 textsize = 22,
                 textcolor = Color.red,
+                infosize = 16,
             };
         }
 
@@ -140,6 +144,10 @@ namespace Oxide.Plugins
                 }
                 catch { }
                 _routine = null;
+            }
+            foreach (BasePlayer current in BasePlayer.activePlayerList)
+            {
+                CuiHelper.DestroyUi(current, "SafeSpaceInfo");
             }
         }
 
@@ -215,6 +223,46 @@ namespace Oxide.Plugins
         #endregion
 
         #region Helpers
+        void Destroy(BasePlayer player)
+        {
+            CuiHelper.DestroyUi(player, "SafeSpaceInfo");
+        }
+        void UserUI(BasePlayer player)
+        {
+            string helpmessage = "";
+            if (player.IPlayer.HasPermission(permUse))
+            {
+                helpmessage += lang.GetMessage("permUseHelp", this, player.UserIDString) + "\n\n";
+            }
+            if (player.IPlayer.HasPermission(permCraft))
+            {
+                helpmessage += lang.GetMessage("permCraftHelp", this, player.UserIDString) + "\n\n";
+            }
+            if (player.IPlayer.HasPermission(permCount))
+            {
+                helpmessage += lang.GetMessage("HelpermCountHelp", this, player.UserIDString) + "\n\n";
+            }
+            if (player.IPlayer.HasPermission(permClear))
+            {
+                helpmessage += lang.GetMessage("permClearHelp", this, player.UserIDString) + "\n\n";
+            }
+            if (player.IPlayer.HasPermission(permView))
+            {
+                helpmessage += lang.GetMessage("permViewHelp", this, player.UserIDString) + "\n\n";
+            }
+
+            if (helpmessage == "") return;
+
+
+            CuiHelper.DestroyUi(player, "SafeSpaceInfo");
+            var elements = new CuiElementContainer();
+            var Main = elements.Add(new CuiPanel { Image = { Color = "0.1 0.1 0.1 0" }, RectTransform = { AnchorMin = "0 0", AnchorMax = "1 1" }, CursorEnabled = true }, "Overlay", "SafeSpaceInfo");
+            elements.Add(new CuiLabel { Text = { Text = helpmessage, FontSize = config.infosize, Align = TextAnchor.UpperCenter }, RectTransform = { AnchorMin = "0 0.20", AnchorMax = "1 0.9" } }, Main);
+            var Close = new CuiButton { Button = { Command = "global.closeinfo", Color = "0 180 0 1" }, RectTransform = { AnchorMin = "0.55 0.16", AnchorMax = "0.65 0.2" }, Text = { Text = "Close", FontSize = 18, Align = TextAnchor.MiddleCenter } };
+            elements.Add(Close, Main);
+            CuiHelper.AddUi(player, elements);
+        }
+
         public void StartSleeping(BasePlayer player)
         {
             if (!player.IsSleeping())
@@ -513,11 +561,20 @@ namespace Oxide.Plugins
                 message(player, "Permission", "teleport to");
                 return;
             }
-            if(player.isMounted)
+            if (player.isMounted)
             {
                 message(player, "Mounted");
                 return;
             }
+            if (!player.IsOnGround())
+            {
+                if (!player.IsAdmin)       //Admin bypass since youd want to use it while in vanish.
+                {
+                    message(player, "Ground");
+                    return;
+                }
+            }
+
             ulong uid = player.userID;
             int Selection = 0;
             if (args.Count() > 0)
@@ -580,26 +637,8 @@ namespace Oxide.Plugins
         [ChatCommand("safespace.help")]
         private void CmdSafeSpaceHelp(BasePlayer player, string command, string[] args)
         {
-            if (player.IPlayer.HasPermission(permUse))
-            {
-                message(player, "permUseHelp");
-            }
-            if (player.IPlayer.HasPermission(permCraft))
-            {
-                message(player, "permCraftHelp");
-            }
-            if (player.IPlayer.HasPermission(permCount))
-            {
-                message(player, "HelpermCountHelp");
-            }
-            if (player.IPlayer.HasPermission(permClear))
-            {
-                message(player, "permClearHelp");
-            }
-            if (player.IPlayer.HasPermission(permView))
-            {
-                message(player, "permViewHelp");
-            }
+            if (player != null)
+            UserUI(player);
         }
 
         [ChatCommand("safespace.craft")]
@@ -738,6 +777,14 @@ namespace Oxide.Plugins
         #endregion
 
         #region Command
+        [ConsoleCommand("closeinfo")]
+        private void agreed(ConsoleSystem.Arg arg)
+        {
+            var player = arg.Connection.player as BasePlayer;
+            if (player == null) return;
+            Destroy(player);
+        }
+
         [ConsoleCommand("safespace.give")]
         private void Cmd(ConsoleSystem.Arg arg)
         {
