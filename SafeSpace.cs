@@ -39,18 +39,19 @@ namespace Oxide.Plugins
             {"Welcome", "Welcome to your safespace <color=red>{0}</color>," + "\n" + "<color=orange>You can get back here with /safespace</color>"},
             {"Permission", "You need permission to {0} a SafeSpace!"},
             {"View", "{0} SafeSpace view!"},
-            {"No", "You have no safespaces!"},
+            {"No", "You have no safespace!"},
             {"Mounted", "You can't teleport while mounted!"},
             {"Ground", "You can't teleport while falling!"},
             {"Already", "{0}"},
-            {"permUseHelp", "<color=orange>How to use safespace:</color>" + "\n" + "Set safespace as your active item and place on ground" + "\n" + "You will be teleported to your safespace" + "\n" + "Build your base here using floors, you can return here any time with chat command"+ "\n" + "<color=orange>/safespace</color>"},
+            {"permUseHelp", "<color=orange>How to use safespace:</color>" + "\n" + "Set safespace as your active item and place on ground" + "\n" + "You will be teleported to your safespace" + "\n" + "Build your base here using floors and walls, you can return here any time with chat command"+ "\n" + "<color=orange>/safespace</color>"},
             {"permCraftHelp", "You can craft a safespace token using the command"+ "\n" + "<color=orange>/safespace.craft</color>"},
-            {"HelpermCountHelp", "You can count active safe spaces with"+ "\n" + "<color=orange>/safespace.count</color>" + "\n" + "Adding a name on after count will filter to only count that players bases"},
+            {"HelpermCountHelp", "You can count active safe spaces with"+ "\n" + "<color=orange>/safespace.count</color>" + "\n" + "Adding a name on after count will filter to only count that players bases."},
             {"permClearHelp", "You can clear all safe spaces with"+ "\n" + "<color=orange>/safespace.clear</color>" + "\n" + "Adding a name after will remove only bases of that player"},
-            {"permViewHelp", "You can view all safe spaces bases with"+ "\n" + "<color=orange>/safespace.view</color>" + "\n" + "Adding a name after will filter to only show that player" + "\n" +  "\n" + "You can travel to other players safe bases by using"+ "\n" + "<color=orange>/safespace 0 username</color>"},
+            {"permViewHelp", "You can view all safe spaces bases with"+ "\n" + "<color=orange>/safespace.view</color>" + "\n" + "Adding a name after will filter to only show that player" + "\n" +  "\n" + "You can travel to other players safespace bases by using"+ "\n" + "<color=orange>/safespace 0 username</color>"},
             {"Have", "You have {0} safe spaces select one with"+ "\n" + "<color=orange>/safespace number</color>"},
             {"Cant", "Cant find any player by that name/id!"},
             {"Clear", "Cleared {0} SafeSpaces!"},
+            {"Built", "Welcome to your safespace {0}\nUse your building planner and place down some floors to expand your safespace base.\nYou already have a bag placed down here automatically and can also return with /safespace in chat.\n\nUpgrading to HQM will prevent bits being broken.\nAnything else is open game to players on the ground!\n\nAlso be careful using /remove on some parts or badly placing things can break everything thats not HQM."},
             {"Count", "There are {0} SafeSpaces active!"}
             }, this);
         }
@@ -227,28 +228,35 @@ namespace Oxide.Plugins
         {
             CuiHelper.DestroyUi(player, "SafeSpaceInfo");
         }
-        void UserUI(BasePlayer player)
+        void UserUI(BasePlayer player, bool firstbuilt = false)
         {
             string helpmessage = "";
-            if (player.IPlayer.HasPermission(permUse))
+            if (firstbuilt)
             {
-                helpmessage += lang.GetMessage("permUseHelp", this, player.UserIDString) + "\n\n";
+                helpmessage = string.Format(lang.GetMessage("Built", this, player.UserIDString), player.displayName);
             }
-            if (player.IPlayer.HasPermission(permCraft))
+            else
             {
-                helpmessage += lang.GetMessage("permCraftHelp", this, player.UserIDString) + "\n\n";
-            }
-            if (player.IPlayer.HasPermission(permCount))
-            {
-                helpmessage += lang.GetMessage("HelpermCountHelp", this, player.UserIDString) + "\n\n";
-            }
-            if (player.IPlayer.HasPermission(permClear))
-            {
-                helpmessage += lang.GetMessage("permClearHelp", this, player.UserIDString) + "\n\n";
-            }
-            if (player.IPlayer.HasPermission(permView))
-            {
-                helpmessage += lang.GetMessage("permViewHelp", this, player.UserIDString) + "\n\n";
+                if (player.IPlayer.HasPermission(permUse))
+                {
+                    helpmessage += lang.GetMessage("permUseHelp", this, player.UserIDString) + "\n\n";
+                }
+                if (player.IPlayer.HasPermission(permCraft))
+                {
+                    helpmessage += lang.GetMessage("permCraftHelp", this, player.UserIDString) + "\n\n";
+                }
+                if (player.IPlayer.HasPermission(permCount))
+                {
+                    helpmessage += lang.GetMessage("HelpermCountHelp", this, player.UserIDString) + "\n\n";
+                }
+                if (player.IPlayer.HasPermission(permClear))
+                {
+                    helpmessage += lang.GetMessage("permClearHelp", this, player.UserIDString) + "\n\n";
+                }
+                if (player.IPlayer.HasPermission(permView))
+                {
+                    helpmessage += lang.GetMessage("permViewHelp", this, player.UserIDString) + "\n\n";
+                }
             }
 
             if (helpmessage == "") return;
@@ -303,6 +311,7 @@ namespace Oxide.Plugins
 
         private Vector3 RandomLocation()
         {
+            //Pick random location on the map.
             return new Vector3(rnd.Next(Math.Abs((int)RanMapSize) * (-1), (int)RanMapSize), rnd.Next(820, 943), rnd.Next(Math.Abs((int)RanMapSize) * (-1), ((int)RanMapSize)));
         }
         #endregion
@@ -328,7 +337,7 @@ namespace Oxide.Plugins
                     }
 
                     player.RemoveFromTriggers();
-                    player.EnableServerFall(true);
+                    player.SetServerFall(true);
                     player.Teleport(newPosition);
 
                     if (player.IsConnected && !Network.Net.sv.visibility.IsInside(player.net.group, newPosition))
@@ -342,7 +351,7 @@ namespace Oxide.Plugins
                 }
                 finally
                 {
-                    player.EnableServerFall(false);
+                    player.SetServerFall(false);
                     player.ForceUpdateTriggers();
                 }
 
@@ -473,6 +482,7 @@ namespace Oxide.Plugins
             SafeSpaceBags.Add(bag, player.userID); //Adds it to list incase theres a active viewer already.
 
             Teleport(player, RandomSafeSpace); //Sends player there
+            timer.Once(2f, () => { UserUI(player, true); }); //Show UI info
             return true;
         }
 
@@ -638,7 +648,7 @@ namespace Oxide.Plugins
         private void CmdSafeSpaceHelp(BasePlayer player, string command, string[] args)
         {
             if (player != null)
-            UserUI(player);
+                UserUI(player);
         }
 
         [ChatCommand("safespace.craft")]
