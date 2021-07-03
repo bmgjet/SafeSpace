@@ -41,7 +41,9 @@ namespace Oxide.Plugins
             {"View", "{0} SafeSpace view!"},
             {"No", "You have no safespace!"},
             {"Mounted", "You can't teleport while mounted!"},
+            {"Cargo", "You can't teleport while on cargoship!"},
             {"Ground", "You can't teleport while falling!"},
+            {"BuildingBlock", "You can't teleport while Building Blocked!"},
             {"Already", "{0}"},
             {"permUseHelp", "<color=orange>How to use safespace:</color>" + "\n" + "Set safespace as your active item and place on ground" + "\n" + "You will be teleported to your safespace" + "\n" + "Build your base here using floors and walls, you can return here any time with chat command"+ "\n" + "<color=orange>/safespace</color>"},
             {"permCraftHelp", "You can craft a safespace token using the command"+ "\n" + "<color=orange>/safespace.craft</color>"},
@@ -168,7 +170,6 @@ namespace Oxide.Plugins
                     if (checkhammer != null)
                         if (checkhammer.ShortPrefabName.Contains("hammer"))
                         {
-                            Puts(checkhammer.ToString());
                             return null;
                         }
                 }
@@ -576,6 +577,16 @@ namespace Oxide.Plugins
                 message(player, "Mounted");
                 return;
             }
+            if (player.GetComponentInParent<CargoShip>())
+            {
+                message(player, "Cargo");
+                return;
+            }
+            if(player.IsBuildingBlocked())
+            {
+                message(player, "BuildingBlock");
+                return;
+            }
             if (!player.IsOnGround())
             {
                 if (!player.IsAdmin)       //Admin bypass since youd want to use it while in vanish.
@@ -649,6 +660,13 @@ namespace Oxide.Plugins
         {
             if (player != null)
                 UserUI(player);
+        }
+
+        [ChatCommand("safespace.info")]
+        private void CmdSafeSpaceInfo(BasePlayer player, string command, string[] args)
+        {
+            if (player != null)
+                UserUI(player, true);
         }
 
         [ChatCommand("safespace.craft")]
